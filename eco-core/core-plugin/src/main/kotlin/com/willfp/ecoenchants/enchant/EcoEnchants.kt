@@ -6,6 +6,7 @@ import com.willfp.ecoenchants.EcoEnchantsPlugin
 import com.willfp.ecoenchants.display.getFormattedName
 import com.willfp.ecoenchants.enchant.impl.EcoEnchantBase
 import com.willfp.ecoenchants.enchant.impl.LibreforgeEcoEnchant
+import com.willfp.ecoenchants.enchant.impl.hardcoded.EnchantmentIndestructible
 import com.willfp.ecoenchants.enchant.impl.hardcoded.EnchantmentPermanenceCurse
 import com.willfp.ecoenchants.enchant.impl.hardcoded.EnchantmentRepairing
 import com.willfp.ecoenchants.enchant.impl.hardcoded.EnchantmentReplenish
@@ -102,6 +103,7 @@ object EcoEnchants : RegistrableCategory<EcoEnchant>("enchant", "enchants") {
 
     private fun registerHardcodedEnchantments() {
         val hardcodedEnchantments = listOf(
+            EnchantmentIndestructible,
             EnchantmentPermanenceCurse,
             EnchantmentRepairing,
             EnchantmentReplenish,

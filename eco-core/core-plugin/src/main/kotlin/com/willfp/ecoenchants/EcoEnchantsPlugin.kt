@@ -28,6 +28,7 @@ import com.willfp.ecoenchants.mechanics.ExtraItemSupport
 import com.willfp.ecoenchants.mechanics.GrindstoneSupport
 import com.willfp.ecoenchants.mechanics.LootSupport
 import com.willfp.ecoenchants.mechanics.VillagerSupport
+import com.willfp.ecoenchants.mechanics.IndestructibleSupport
 import com.willfp.ecoenchants.target.EnchantFinder
 import com.willfp.ecoenchants.target.EnchantFinder.clearEnchantmentCache
 import com.willfp.libreforge.NamedValue
@@ -98,7 +99,8 @@ class EcoEnchantsPlugin : LibreforgePlugin() {
             LootSupport,
             AnvilSupport,
             LoreConversion,
-            GrindstoneSupport
+            GrindstoneSupport,
+            IndestructibleSupport
         )
     }
 

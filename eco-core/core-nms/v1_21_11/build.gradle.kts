@@ -6,6 +6,7 @@ group = "com.willfp"
 version = rootProject.version
 
 dependencies {
+    compileOnly("net.kyori:adventure-text-serializer-ansi:4.18.0")
     implementation(project(":eco-core:core-nms:v1_21_8", configuration = "shadow"))
     paperweight.paperDevBundle("1.21.11-R0.1-SNAPSHOT")
 }
