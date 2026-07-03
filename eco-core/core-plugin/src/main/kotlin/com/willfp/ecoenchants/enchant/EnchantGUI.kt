@@ -1,13 +1,12 @@
 package com.willfp.ecoenchants.enchant
 
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.willfp.eco.core.config.base.LangYml
 import com.willfp.eco.core.drops.DropQueue
 import com.willfp.eco.core.fast.fast
 import com.willfp.eco.core.gui.GUIComponent
+import com.willfp.eco.core.gui.addPageChanger
 import com.willfp.eco.core.gui.menu
 import com.willfp.eco.core.gui.menu.Menu
-import com.willfp.eco.core.gui.menu.MenuLayer
 import com.willfp.eco.core.gui.page.Page
 import com.willfp.eco.core.gui.page.PageChanger
 import com.willfp.eco.core.gui.slot
@@ -19,12 +18,14 @@ import com.willfp.eco.core.items.Items
 import com.willfp.eco.core.items.builder.EnchantedBookBuilder
 import com.willfp.eco.core.items.builder.ItemStackBuilder
 import com.willfp.eco.core.items.isEcoEmpty
+import com.willfp.eco.core.sound.PlayableSound
 import com.willfp.eco.util.formatEco
 import com.willfp.eco.util.lineWrap
 import com.willfp.ecoenchants.display.EnchantSorter.sortForDisplay
 import com.willfp.ecoenchants.display.HideStoredEnchantsProxy
 import com.willfp.ecoenchants.display.getFormattedDescription
 import com.willfp.ecoenchants.display.getFormattedName
+import com.willfp.ecoenchants.enchant.DiscoveryType
 import com.willfp.ecoenchants.plugin
 import com.willfp.ecoenchants.target.EnchantmentTargets.applicableEnchantments
 import org.bukkit.Material
@@ -40,7 +41,7 @@ import kotlin.math.ceil
 object EnchantGUI {
     private lateinit var menu: Menu
     private var groupMenu: Menu? = null
-    private val enchantInfoMenus = Caffeine.newBuilder().build<EcoEnchant, Menu>()
+    private val enchantInfoMenus = Caffeine.newBuilder().build<Pair<EcoEnchant, Int>, Menu>()
     private var allEnchantsSorted: List<Enchantment> = emptyList()
 
     internal fun reload() {
@@ -141,17 +142,18 @@ object EnchantGUI {
                 pane
             )
 
+            val pageChangeSound = PlayableSound.create(
+                plugin.configYml.getSubsection("enchant-gui.page-change.sound")
+            )
+
             for (direction in PageChanger.Direction.entries) {
                 val directionName = direction.name.lowercase()
 
-                addComponent(
-                    MenuLayer.TOP,
-                    plugin.configYml.getInt("enchant-gui.page-change.$directionName.row"),
-                    plugin.configYml.getInt("enchant-gui.page-change.$directionName.column"),
-                    PageChanger(
-                        Items.lookup(plugin.configYml.getString("enchant-gui.page-change.$directionName.item")).item,
-                        direction
-                    )
+                addPageChanger(
+                    plugin.configYml,
+                    "enchant-gui.page-change.$directionName",
+                    direction,
+                    pageChangeSound
                 )
             }
 
@@ -296,15 +298,21 @@ object EnchantGUI {
         }
     }
 
-    fun openInfoGUI(player: Player, enchant: EcoEnchant) {
-        enchantInfoMenus.get(enchant) {
+    fun openInfoGUI(player: Player, enchant: EcoEnchant, level: Int = -1) {
+        val effectiveLevel = if (level == -1) {
+            if (plugin.configYml.getBool("enchantinfo.item.show-max-level")) enchant.maximumLevel else 1
+        } else {
+            level.coerceIn(1, enchant.maximumLevel)
+        }
+
+        enchantInfoMenus.get(enchant to effectiveLevel) {
             menu(plugin.configYml.getInt("enchantinfo.rows")) {
-                title = enchant.getFormattedName(0)
+                title = enchant.getFormattedName(effectiveLevel)
 
                 setSlot(
                     plugin.configYml.getInt("enchantinfo.item.row"),
                     plugin.configYml.getInt("enchantinfo.item.column"),
-                    enchant.getInformationSlot(player)
+                    enchant.getInformationSlot(player, effectiveLevel)
                 )
 
                 setMask(
@@ -346,7 +354,8 @@ private class EnchantmentScrollPane : GUIComponent {
 
         val enchant = enchants.getOrNull(index + size * (page - 1)) ?: return defaultSlot
 
-        return enchant.getInformationSlot(player)
+        val displayLevel = if (plugin.configYml.getBool("enchantinfo.item.show-max-level")) enchant.maximumLevel else 1
+        return enchant.getInformationSlot(player, displayLevel)
     }
 
     override fun getRows() = plugin.configYml.getInt("enchant-gui.enchant-area.height")
@@ -356,16 +365,10 @@ private class EnchantmentScrollPane : GUIComponent {
 }
 
 private val cachedEnchantmentSlots = Caffeine.newBuilder()
-    .build<EcoEnchant, Slot>()
+    .build<Pair<EcoEnchant, Int>, Slot>()
 
-private fun EcoEnchant.getInformationSlot(player: Player): Slot {
-    return cachedEnchantmentSlots.get(this) { it ->
-        val level = if (plugin.configYml.getBool("enchantinfo.item.show-max-level")) {
-            it.maximumLevel
-        } else {
-            1
-        }
-
+private fun EcoEnchant.getInformationSlot(player: Player, level: Int): Slot {
+    return cachedEnchantmentSlots.get(this to level) {
         slot(
             EnchantedBookBuilder()
                 .addStoredEnchantment(enchantment, level)
@@ -397,15 +400,13 @@ private fun EcoEnchant.getInformationSlot(player: Player): Slot {
                                         required.wrap().getFormattedName(0)
                                     }.ifEmpty { plugin.langYml.getFormattedString("no-required") }
                                 )
-                                .replace("%tradeable%", this.isObtainableThroughTrading.parseYesOrNo(plugin.langYml))
-                                .replace(
-                                    "%discoverable%",
-                                    this.isObtainableThroughDiscovery.parseYesOrNo(plugin.langYml)
-                                )
-                                .replace(
-                                    "%enchantable%",
-                                    this.isObtainableThroughEnchanting.parseYesOrNo(plugin.langYml)
-                                )
+                                .replace("%tradeable%", this.isObtainableThroughTrading.parseYesOrNo())
+                                .replace("%discoverable%", this.isObtainableThroughDiscovery.parseYesOrNo())
+                                .replace("%discoverable_chests%", this.isObtainableThrough(DiscoveryType.CHESTS).parseYesOrNo())
+                                .replace("%discoverable_fishing%", this.isObtainableThrough(DiscoveryType.FISHING).parseYesOrNo())
+                                .replace("%discoverable_mob_drops%", this.isObtainableThrough(DiscoveryType.MOB_DROPS).parseYesOrNo())
+                                .replace("%discoverable_raids%", this.isObtainableThrough(DiscoveryType.RAIDS).parseYesOrNo())
+                                .replace("%enchantable%", this.isObtainableThroughEnchanting.parseYesOrNo())
                         }
                         .formatEco()
                         .flatMap {
@@ -422,6 +423,5 @@ private fun EcoEnchant.getInformationSlot(player: Player): Slot {
     }
 }
 
-fun Boolean.parseYesOrNo(langYml: LangYml): String {
-    return if (this) langYml.getFormattedString("yes") else langYml.getFormattedString("no")
-}
+fun Boolean.parseYesOrNo(): String =
+    if (this) plugin.langYml.getFormattedString("yes") else plugin.langYml.getFormattedString("no")
