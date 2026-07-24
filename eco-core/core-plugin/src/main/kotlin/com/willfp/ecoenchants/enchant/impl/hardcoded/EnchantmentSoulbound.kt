@@ -9,7 +9,6 @@ import com.willfp.eco.core.fast.fast
 import com.willfp.eco.core.items.Items
 import com.willfp.ecoenchants.enchant.EcoEnchant
 import com.willfp.ecoenchants.enchant.impl.HardcodedEcoEnchant
-import com.willfp.ecoenchants.target.EnchantFinder.getItemsWithEnchantActive
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -17,7 +16,9 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerRespawnEvent
+import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
+import java.util.UUID
 
 object EnchantmentSoulbound : HardcodedEcoEnchant(
     "soulbound"
@@ -42,6 +43,8 @@ object EnchantmentSoulbound : HardcodedEcoEnchant(
         )
 
         private val soulboundKey = plugin.namespacedKeyFactory.create("soulbound")
+        private val keptItems = mutableMapOf<UUID, Collection<ItemStack>>()
+        private val temporaryDebug = true
 
         @EventHandler(
             priority = EventPriority.HIGHEST,
@@ -53,12 +56,15 @@ object EnchantmentSoulbound : HardcodedEcoEnchant(
             }
 
             val player = event.entity
-            val items = player.getItemsWithEnchantActive(enchant).keys
+            // The event drops are authoritative: combat-log plugins can manage the player's inventory.
+            val items = event.drops
+                .filter { !it.type.isAir && it.itemMeta?.hasEnchant(enchant.enchantment) == true }
 
             if (items.isEmpty()) {
                 return
             }
 
+            debug(player, "death detected=${items.describe()} drops-before=${event.drops.describe()}")
             event.drops.removeAll(items)
 
             // Use native paper method
@@ -75,6 +81,8 @@ object EnchantmentSoulbound : HardcodedEcoEnchant(
                 }
 
                 event.itemsToKeep += modifiedItems
+                keptItems[player.uniqueId] = modifiedItems
+                debug(player, "kept=${modifiedItems.describe()} drops-after=${event.drops.describe()}")
                 return
             }
 
@@ -129,10 +137,32 @@ object EnchantmentSoulbound : HardcodedEcoEnchant(
             ignoreCancelled = true
         )
         fun preventDroppingSoulboundItems(event: PlayerDeathEvent) {
+            val before = event.drops.size
             event.drops.removeIf {
                 it.fast().persistentDataContainer.has(soulboundKey, PersistentDataType.INTEGER)
                         && it.itemMeta?.hasEnchant(enchant.enchantment) == true
             }
+            if (event.drops.size != before) {
+                debug(event.entity, "fallback removed=${before - event.drops.size} drops=${event.drops.describe()}")
+            }
+        }
+
+        @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+        fun removeLateDrops(event: PlayerDeathEvent) {
+            val kept = keptItems.remove(event.entity.uniqueId) ?: return
+            val before = event.drops.size
+            event.drops.removeAll(kept)
+            debug(event.entity, "final removed=${before - event.drops.size} drops=${event.drops.describe()}")
+        }
+
+        private fun debug(player: Player, message: String) {
+            if (temporaryDebug) {
+                plugin.logger.info("[TEMP-DEBUG] soulbound player=${player.uniqueId} $message")
+            }
+        }
+
+        private fun Collection<ItemStack>.describe() = joinToString(prefix = "[", postfix = "]") {
+            "${it.type}:${it.amount}:${it.getEnchantmentLevel(enchant.enchantment)}"
         }
     }
 }

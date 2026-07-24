@@ -41,7 +41,8 @@ object EnchantFinder : ItemHolderFinder<EcoEnchantLevel>() {
 
     private val LivingEntity.cachedLevels: List<ProvidedLevel>
         get() = levelCache.get(this.uniqueId) {
-            toHolderProvider().provide(this.toDispatcher())
+            val provided = toHolderProvider().provide(this.toDispatcher())
+            provided
                 .mapNotNull {
                     val level = it.holder as? EcoEnchantLevel ?: return@mapNotNull null
                     val item = it.provider as? ItemStack ?: return@mapNotNull null

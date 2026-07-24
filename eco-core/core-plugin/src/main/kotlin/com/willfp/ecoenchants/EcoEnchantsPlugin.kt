@@ -72,8 +72,6 @@ class EcoEnchantsPlugin : LibreforgePlugin() {
     }
 
     override fun handleEnable() {
-        Effects.register(EffectApplyRandomEnchant)
-
         registerHolderProvider(EnchantFinder.toHolderProvider())
 
         registerSpecificRefreshFunction<LivingEntity> {
@@ -85,6 +83,10 @@ class EcoEnchantsPlugin : LibreforgePlugin() {
                 NamedValue("level", it.level),
             )
         }
+    }
+
+    override fun handleLoad() {
+        Effects.register(EffectApplyRandomEnchant)
     }
 
     override fun handleAfterLoad() {

@@ -6,6 +6,8 @@ import com.willfp.eco.util.savedDisplayName
 import com.willfp.ecoenchants.display.getFormattedName
 import com.willfp.ecoenchants.enchant.wrap
 import com.willfp.ecoenchants.plugin
+import com.willfp.libreforge.refreshHolders
+import com.willfp.libreforge.toDispatcher
 import org.bukkit.NamespacedKey
 import org.bukkit.command.CommandSender
 import org.bukkit.enchantments.Enchantment
@@ -67,6 +69,7 @@ object CommandEnchant : PluginCommand(
         }
 
         item.itemMeta = meta
+        player.toDispatcher().refreshHolders()
     }
 
     override fun tabComplete(sender: CommandSender, rawArgs: List<String>): List<String> {

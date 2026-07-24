@@ -4,11 +4,12 @@ main: com.willfp.ecoenchants.EcoEnchantsPlugin
 api-version: 1.21.8
 authors: [ Auxilor ]
 website: willfp.com
-load: STARTUP
+load: POSTWORLD
 depend:
   - eco
 softdepend:
   - libreforge
+  - EcoSkills
   - CMI
   - EssentialsX
 
