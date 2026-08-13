@@ -20,7 +20,7 @@ effects:
     args:
       on_items:
         - ancient_debris
-      fortune: "%level%"
+      multiplier: "1 + (random() < (%level% == 1 ? 0.33 : 0.75) ? 1 : 0)"
     filters:
       player_placed: false
     triggers:

@@ -44,7 +44,12 @@ effects:
 
     args:
       cooldown: 60
+      cooldown_group: "dynamite"
       send_cooldown_message: true
+    conditions:
+      - id: is_expression_true
+        args:
+          expression: "%distance% <= 5"
     triggers:
       - click_block
 
